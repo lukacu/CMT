@@ -18,6 +18,7 @@ parser = argparse.ArgumentParser(description='Track an object.')
 
 parser.add_argument('inputpath', nargs='?', help='The input path.')
 parser.add_argument('--challenge', dest='challenge', action='store_true', help='Enter challenge mode.')
+parser.add_argument('--trax', dest='trax', action='store_true', help='Enter TraX protocol mode.')
 parser.add_argument('--preview', dest='preview', action='store_const', const=True, default=None, help='Force preview')
 parser.add_argument('--no-preview', dest='preview', action='store_const', const=False, default=None, help='Disable preview')
 parser.add_argument('--no-scale', dest='estimate_scale', action='store_false', help='Disable scale estimation')
@@ -33,6 +34,15 @@ args = parser.parse_args()
 CMT.estimate_scale = args.estimate_scale
 CMT.estimate_rotation = args.estimate_rotation
 
+def read_trax_image(image):
+    if image.type == trax.image.PATH:
+        return cv2.imread(image.path)
+    if image.type == trax.image.MEMORY:
+        return image.image
+    if image.type == trax.image.BUFFER:
+        return cv2.imdecode(np.fromstring(image.data, dtype=np.uint8), cv2.CV_LOAD_IMAGE_COLOR)
+    return None
+
 if args.pause:
 	pause_time = 0
 else:
@@ -44,7 +54,34 @@ if args.output is not None:
 	elif not os.path.isdir(args.output):
 		raise Exception(args.output + ' exists, but is not a directory')
 
-if args.challenge:
+if args.trax:
+    import trax
+    import trax.server
+    import trax.region
+    import trax.image
+
+    options = trax.server.ServerOptions(trax.region.RECTANGLE, [trax.image.PATH, trax.image.MEMORY, trax.image.BUFFER])
+    region = None
+    with trax.server.Server(options, verbose=True) as server:
+        while True:
+            request = server.wait()
+            if request.type in ["quit", "error"]:
+                break
+            if request.type == "initialize":
+                region = request.region
+                im0 = read_trax_image(request.image)
+                im_gray0 = cv2.cvtColor(im0, cv2.COLOR_BGR2GRAY)
+                tl = (region.x, region.y)
+                br = (region.x + region.width - 1, region.y + region.height - 1)
+                CMT.initialise(im_gray0, tl, br)
+            else:
+                im = read_trax_image(request.image)
+                im_gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+                CMT.process_frame(im_gray)
+                region = trax.region.Rectangle(CMT.bb[0], CMT.bb[1], CMT.bb[2], CMT.bb[3])
+            server.status(region)
+
+elif args.challenge:
 	with open('images.txt') as f:
 		images = [line.strip() for line in f]
 

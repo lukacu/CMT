@@ -52,6 +52,7 @@ usage: run.py [-h] [--challenge] [--preview] [--no-preview] [--no-scale]
 * `--skip N` Skips N frames of the video input
 * `--output-dir OUTPUT` Specify a directory for output data.
 * `--quiet` Do not show graphical output (Useful in combination with --output-dir).
+* `--trax` Run tracker in [TraX](https://github.com/votchallenge/trax) mode.
 
 ## Object Selection
 Press any key to stop the preview stream. Left click to select the
